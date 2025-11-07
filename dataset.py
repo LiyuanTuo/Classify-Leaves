@@ -1,21 +1,4 @@
-# dic = {}
-
-# cnt = 0
-# with open("train.csv", 'r') as f:
-#     f.readline()
-#     for i in range(18353):
-#         str = f.readline().strip().split(",")
-#         if dic.get(str[1]) == None:
-#             dic[str[1]] = cnt
-#             # print(str[0],",", cnt, file=f)
-#             cnt += 
-
-
-
-# with open("dic.csv", 'w') as g:
-#     for i, j in dic.items():
-#         print(f"\"{i}\":{j},", file=g)
-
+# 真的就只是个哈希表
 dic = {
     "maclura_pomifera": 0,
     "ulmus_rubra": 1,
