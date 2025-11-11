@@ -1,5 +1,5 @@
 import time
-import torch
+import torch   # ResNet 预测部分
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision.transforms import *

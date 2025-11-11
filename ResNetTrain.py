@@ -1,11 +1,12 @@
 import torch
-from torch import nn
+from torch import nn # 实现一下 ResNet 训练
 from torchvision.transforms import *
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import time
 import os
 from PIL import Image
+from torch.utils.tensorboard import SummaryWriter
 
 
 torch.manual_seed(42)
@@ -217,7 +218,7 @@ class MydataSet(torch.utils.data.Dataset):
                 str = f.readline().strip().split(",")
                 for j in range(2):
                     self.dir.append(str[0])
-                    self.label[i + j] = dic[str[1]]
+                    self.label[2 * i + j] = dic[str[1]]
 
         end = time.time()
         print(f"loadtime cost  {end - start}")
@@ -256,15 +257,15 @@ class ResNet(nn.Module):
     def __init__(self, num_classes=176):
         super(ResNet, self).__init__()
         self.pre = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False), # 88
+            nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False), # 176 -> 88
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1) # 44
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1) # 88 -> 44
         )
         self.layer1 = self._make_layer(
             inchannel=64, outchannel=64, block_num=3, stride=1, is_shortcut=False)
         self.layer2 = self._make_layer(
-            inchannel=64, outchannel=128, block_num=4, stride=2) # 22
+            inchannel=64, outchannel=128, block_num=4, stride=2) # 44 -> 22 -> 11 -> 5 -> 2
         # self.layer3 = self._make_layer(
         #     inchannel=128, outchannel=256, block_num=6, stride=2)
         # self.layer4 = self._make_layer(
@@ -329,6 +330,16 @@ else:
     net = ResNet()
 
 net = net.to(device)
+
+writer = SummaryWriter('log') # tensorboard --logdir=./log --port=6006
+                              # http://localhost:6006
+
+dummy_input = torch.randn(1, 3, 176, 176).to(device)
+writer.add_graph(net, dummy_input)
+writer.close()
+
+print(net) # 查看网络结构
+
 lo = torch.nn.CrossEntropyLoss()
 lo = lo.to(device)
 

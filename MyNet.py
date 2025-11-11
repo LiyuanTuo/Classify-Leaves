@@ -1,4 +1,14 @@
-# 真的就只是个哈希表
+import time
+import torch  # 自己手写的网络, 预测部分
+from torch import nn
+from torch.utils.data import DataLoader
+from torchvision.transforms import *
+import pandas
+from PIL import Image
+torch.manual_seed(42)
+
+start = time.time()
+
 dic = {
     "maclura_pomifera": 0,
     "ulmus_rubra": 1,
@@ -177,3 +187,118 @@ dic = {
     "crataegus_crus-galli": 174,
     "juniperus_virginiana": 175
 }
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+class MydataSet(torch.utils.data.Dataset):
+    def __init__(self):
+        super().__init__()
+
+        self.tran = Compose([
+            CenterCrop(160),   # 先裁中心区域
+            ToTensor()
+            # RandomAffine(degrees=15, scale=(0.9, 1.1),
+            #              translate=(0.15, 0.15), fill=(1, 1, 1))
+        ])
+
+        self.dir = []
+        with open("./test.csv") as f:
+            f.readline()
+
+            for i in range(8800):
+                str = f.readline().strip().split(",")
+
+                self.dir.append(str[0])
+
+    def __len__(self):
+        return len(self.dir)
+
+    def __getitem__(self, idx):
+        with Image.open(self.dir[idx]) as img:
+            img = self.tran(img)
+        return img
+
+
+class Net(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Conv2d(3, 32, 5, 1, 2),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+
+            nn.Conv2d(32, 32, 5, 1, 2),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+
+            nn.MaxPool2d(4),
+
+            nn.Conv2d(32, 48, 3, 1, 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(48),
+
+            nn.Conv2d(48, 48, 3, 1, 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(48),
+            nn.MaxPool2d(2),
+
+            nn.Flatten(),
+            # 不用在此处加 Softmax（如果用 CrossEntropyLoss）
+            nn.Linear(20 * 20 * 48, 176),
+        )
+
+        # print(self.model)
+
+    def forward(self, x):
+        return self.model(x)
+
+
+def get_data_loader():
+    data_set = MydataSet()
+    return DataLoader(data_set, batch_size=15, shuffle=False, pin_memory=True)
+
+
+test_data = get_data_loader()
+
+p1 = time.time()
+print(p1 - start)
+
+net = torch.load('Classify Leaves.pth',
+                 weights_only=False, map_location=device)
+net = net.to(device)
+
+ans = []
+# optimizer = torch.optim.Adam(net.parameters(), lr = 0.001)
+
+cnt = 0
+with torch.no_grad():
+    net.eval()
+    for x in test_data:  # x: 15 x 3 x 160 x 160
+        x = x.to(device)
+        output = net(x)
+        output = output.argmax(1)
+        if cnt % 50 == 0:
+            print(cnt)
+        cnt += 1
+        for i in output:
+            ans.append(int(i))
+
+indic = {x: y for y, x in dic.items()}
+
+
+with open("sample_submission.csv", "w") as f:
+    print("image,label", file=f)
+    cnt = 1
+    for i in ans:
+        print(f"images/{18352 + cnt}.jpg,{indic[i]}", sep="", file=f)
+        cnt += 1
+
+
+sub = pandas.read_csv("sample_submission.csv")
+
+print(sub["label"].shape)
+
+endtime = time.time()
+
+print(endtime  -start)
